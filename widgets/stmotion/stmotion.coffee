@@ -1,4 +1,4 @@
-class Dashing.Stcontact extends Dashing.Widget
+class Dashing.Stmotion extends Dashing.Widget
   constructor: ->
     super
     @queryState()
@@ -8,19 +8,19 @@ class Dashing.Stcontact extends Dashing.Widget
     set: (key, value) -> @_state = value
 
   @accessor 'icon',
-    get: -> if @get('state') == 'open' then 'expand' else 'compress'
+    get: -> if @get('state') == 'active' then 'exchange' else 'reorder'
     set: Batman.Property.defaultAccessor.set
 
   updateBackgroundColor: ->
-    if @get('state') == 'open'
-      $(@node).css 'background-color', '#dc9145'
+    if @get('state') == 'active'
+      $(@node).css 'background-color', '#42C873'
     else
       $(@node).css 'background-color', '#888888'
 
   queryState: ->
     $.get '/smartthings/dispatch',
       widgetId: @get('id'),
-      deviceType: 'contact',
+      deviceType: 'motion',
       deviceId: @get('device')
       (data) =>
         json = JSON.parse data
