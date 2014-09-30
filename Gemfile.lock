@@ -88,6 +88,7 @@ GEM
     multi_json (1.10.1)
     multi_xml (0.5.5)
     multipart-post (2.0.0)
+    newrelic_rpm (3.9.5.251)
     oa-core (0.3.2)
     oa-openid (0.3.2)
       oa-core (= 0.3.2)
@@ -161,6 +162,7 @@ DEPENDENCIES
   dm-postgres-adapter
   dm-sqlite-adapter
   json
+  newrelic_rpm
   oa-openid
   oauth2
   omniauth-heroku (~> 0.2.0.pre)
