@@ -14,7 +14,6 @@ configure do
   set :user, ENV["HEROKU_OAUTH_EMAIL"]
 
   helpers do
-
     # Protects access to pages and redirects to the autentication page
     # if not already authenticated.
     def protected!
@@ -72,6 +71,19 @@ configure do
   # No authentication credentials have been set. HEROKU_OAUTH_EMAIL set?
   get '/auth/notset' do
     "Credentials not set."
+  end
+
+  # Restore the event history on load
+  savedHistory = Setting.get('history')
+  if savedHistory
+    set :history, JSON.parse(savedHistory.value)
+  end
+
+  # Upong exiting, write the event history to persistent storage
+  at_exit do
+    savedHistory = Setting.first_or_create(:name => 'history')
+    savedHistory.value = JSON.generate(settings.history)
+    savedHistory.save
   end
 end
 

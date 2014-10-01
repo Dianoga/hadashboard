@@ -19,11 +19,12 @@ Dashing.on 'ready', ->
 
   Batman.setImmediate ->
     $('.gridster').width(contentWidth)
-    Dashing.gridster = $('.gridster ul:first').gridster
+    $('.gridster ul:first').gridster
       widget_margins: Dashing.widget_margins
       widget_base_dimensions: Dashing.widget_base_dimensions
       avoid_overlapped_widgets: !Dashing.customGridsterLayout
       draggable:
         stop: Dashing.showGridsterInstructions
         start: -> Dashing.currentWidgetPositions = Dashing.getWidgetPositions()
-    .data 'gridster'
+    if( /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) )
+        $(".gridster ul:first").gridster().data('gridster').draggable().disable()
