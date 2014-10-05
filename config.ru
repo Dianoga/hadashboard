@@ -1,6 +1,10 @@
 require 'omniauth-heroku'
 require 'dashing'
 
+configure :production do
+  require 'newrelic_rpm'
+end
+
 configure do
   # The auth token used by external clients to get API access to the
   # dashing widgets.

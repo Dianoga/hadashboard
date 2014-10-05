@@ -23,3 +23,6 @@ end
 group :production do
 	gem 'dm-postgres-adapter'
 end
+
+# Monitoring
+gem 'newrelic_rpm'
