@@ -36,6 +36,7 @@ preferences {
         input "presences", "capability.presenceSensor", title: "Which presence sensors?", multiple: true, required: false
         input "switches", "capability.switch", title: "Which switches?", multiple: true, required: false
         input "temperatures", "capability.temperatureMeasurement", title: "Which temperature sensors?", multiple: true, required: false
+        input "thermostats", "capability.thermostat", title: "Which thermostats?", multiple: true, required: false
     }
 }
 
@@ -98,6 +99,11 @@ mappings {
             GET: "getTemperature"
         ]
     }
+    path("/thermostat") {
+        action: [
+            GET: "getThermostat"
+        ]
+    }
     path("/weather") {
         action: [
             GET: "getWeather"
@@ -130,16 +136,25 @@ def initialize() {
         "presence": [:],
         "switch": [:],
         "temperature": [:],
+        "thermostat": [:],
         ]
 
-    subscribe(contacts, "contact", contactHandler)        
+    subscribe(contacts, "contact", contactHandler)
     subscribe(location, locationHandler)
     subscribe(locks, "lock", lockHandler)
     subscribe(motions, "motion", motionHandler)
     subscribe(meters, "power", meterHandler)
-    subscribe(presences, "presence", presenceHandler)    
+    subscribe(presences, "presence", presenceHandler)
     subscribe(switches, "switch", switchHandler)
     subscribe(temperatures, "temperature", temperatureHandler)
+
+    // Subscribe to many things for thermostats
+    subscribe(thermostats, "temperature", thermostatHandler)
+    subscribe(thermostats, "heatingSetpoint", thermostatHandler)
+    subscribe(thermostats, "coolingSetpoint", thermostatHandler)
+    subscribe(thermostats, "thermostatSetpoint", thermostatHandler)
+    subscribe(thermostats, "thermostatMode", thermostatHandler)
+    subscribe(thermostats, "thermostatFanMode", thermostatHandler)
 }
 
 
@@ -246,26 +261,26 @@ def lockHandler(evt) {
 def getPower() {
     def deviceId = request.JSON?.deviceId
     log.debug "getPower ${deviceId}"
-    
+
     if (deviceId) {
         registerWidget("power", deviceId, request.JSON?.widgetId)
-        
+
         def whichMeter = meters.find { it.displayName == deviceId }
         if (!whichMeter) {
             return respondWithStatus(404, "Device '${deviceId}' not found.")
         } else {
             return [
-                "deviceId": deviceId, 
+                "deviceId": deviceId,
                 "value": whichMeter.currentValue("power")]
         }
     }
-    
+
     def result = [:]
     meters.each {
         result[it.displayName] = [
             "value": it.currentValue("power"),
             "widgetId": state.widgets.power[it.displayName]]}
-            
+
     return result
 }
 
@@ -285,7 +300,7 @@ def getMode() {
             log.debug "registerWidget for mode: ${widgetId}"
         }
     }
-    
+
     log.debug "getMode"
     return ["mode": location.mode]
 }
@@ -293,11 +308,11 @@ def getMode() {
 def postMode() {
     def mode = request.JSON?.mode
     log.debug "postMode ${mode}"
-    
+
     if (mode) {
         setLocationMode(mode)
     }
-    
+
     if (location.mode != mode) {
         return respondWithStatus(404, "Mode not found.")
     }
@@ -350,15 +365,15 @@ def motionHandler(evt) {
 def postPhrase() {
     def phrase = request.JSON?.phrase
     log.debug "postPhrase ${phrase}"
-    
+
     if (!phrase) {
         respondWithStatus(404, "Phrase not specified.")
     }
-    
+
     location.helloHome.execute(phrase)
-    
+
     return respondWithSuccess()
-    
+
 }
 
 //
@@ -367,10 +382,10 @@ def postPhrase() {
 def getPresence() {
     def deviceId = request.JSON?.deviceId
     log.debug "getPresence ${deviceId}"
-    
+
     if (deviceId) {
         registerWidget("presence", deviceId, request.JSON?.widgetId)
-        
+
         def whichPresence = presences.find { it.displayName == deviceId }
         if (!whichPresence) {
             return respondWithStatus(404, "Device '${deviceId}' not found.")
@@ -380,13 +395,13 @@ def getPresence() {
                 "state": whichPresence.currentPresence]
         }
     }
-    
+
     def result = [:]
     presences.each {
         result[it.displayName] = [
             "state": it.currentPresence,
             "widgetId": state.widgets.presence[it.displayName]]}
-            
+
     return result
 }
 
@@ -401,10 +416,10 @@ def presenceHandler(evt) {
 def getSwitch() {
     def deviceId = request.JSON?.deviceId
     log.debug "getSwitch ${deviceId}"
-    
+
     if (deviceId) {
         registerWidget("switch", deviceId, request.JSON?.widgetId)
-        
+
         def whichSwitch = switches.find { it.displayName == deviceId }
         if (!whichSwitch) {
             return respondWithStatus(404, "Device '${deviceId}' not found.")
@@ -414,13 +429,13 @@ def getSwitch() {
                 "switch": whichSwitch.currentSwitch]
         }
     }
-    
+
     def result = [:]
     switches.each {
         result[it.displayName] = [
             "state": it.currentSwitch,
             "widgetId": state.widgets.switch[it.displayName]]}
-            
+
     return result
 }
 
@@ -428,7 +443,7 @@ def postSwitch() {
     def command = request.JSON?.command
     def deviceId = request.JSON?.deviceId
     log.debug "postSwitch ${deviceId}, ${command}"
-    
+
     if (command && deviceId) {
         def whichSwitch = switches.find { it.displayName == deviceId }
         if (!whichSwitch) {
@@ -451,31 +466,82 @@ def switchHandler(evt) {
 def getTemperature() {
     def deviceId = request.JSON?.deviceId
     log.debug "getTemperature ${deviceId}"
-    
+
     if (deviceId) {
         registerWidget("temperature", deviceId, request.JSON?.widgetId)
-        
+
         def whichTemperature = temperatures.find { it.displayName == deviceId }
         if (!whichTemperature) {
             return respondWithStatus(404, "Device '${deviceId}' not found.")
         } else {
             return [
-                "deviceId": deviceId, 
+                "deviceId": deviceId,
                 "value": whichTemperature.currentTemperature]
         }
     }
-    
+
     def result = [:]
     temperatures.each {
         result[it.displayName] = [
             "value": it.currentTemperature,
             "widgetId": state.widgets.temperature[it.displayName]]}
-            
+
     return result
 }
 
 def temperatureHandler(evt) {
     def widgetId = state.widgets.temperature[evt.displayName]
+    notifyWidget(widgetId, ["value": evt.value])
+}
+
+//
+// Thermostats
+//
+def getThermostat() {
+    def deviceId = request.JSON?.deviceId
+    log.debug "getThermostat ${deviceId}"
+
+    if (deviceId) {
+        registerWidget("thermostat", deviceId, request.JSON?.widgetId)
+
+        def whichThermostat = thermostats.find { it.displayName == deviceId }
+        if (!whichThermostat) {
+            return respondWithStatus(404, "Device '${deviceId}' not found.")
+        } else {
+            return [
+                "deviceId": deviceId,
+                "value": [
+                    temperature: whichThermostat.currentTemperature,
+                    heatingSetpoint: whichThermostat.currentHeatingSetpoint,
+                    coolingSetpoint: whichThermostat.currentCoolingSetpoint,
+                    thermostatSetpoint: whichThermostat.currentThermostatSetpoint,
+                    thermostatMode: whichThermostat.currentThermostatMode,
+                    thermostatFanMode: whichThermostat.currentThermostatFanMode
+                ]
+            ]
+        }
+    }
+
+    def result = [:]
+    thermostats.each {
+        result[it.displayName] = [
+            "value": [
+                temperature: it.currentTemperature,
+                heatingSetpoint: it.currentHeatingSetpoint,
+                coolingSetpoint: it.currentCoolingSetpoint,
+                thermostatSetpoint: it.currentThermostatSetpoint,
+                thermostatMode: it.currentThermostatMode,
+                thermostatFanMode: it.currentThermostatFanMode
+            ],
+            "widgetId": state.widgets.thermostat[it.displayName]
+        ]
+    }
+
+    return result
+}
+
+def thermostatHandler(evt) {
+    def widgetId = state.widgets.thermostat[evt.displayName]
     notifyWidget(widgetId, ["value": evt.value])
 }
 
@@ -496,8 +562,8 @@ def getWeather() {
 //
 private registerWidget(deviceType, deviceId, widgetId) {
     if (deviceType && deviceId && widgetId) {
-        state['widgets'][deviceType][deviceId] = widgetId
         log.debug "registerWidget ${deviceType}:${deviceId}@${widgetId}"
+        state['widgets'][deviceType][deviceId] = widgetId
     }
 }
 
